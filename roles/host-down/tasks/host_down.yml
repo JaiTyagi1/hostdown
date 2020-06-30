@@ -1,0 +1,88 @@
+---
+#- import_playbook: port.yml
+#- hosts: "{{ variable_host | default('local') }}"
+#  vars:
+#    target: "{{ variable_host }}"
+#    utime: 864000000000
+#    log_path: /home/ansibleadmin/Hostdown/tasks/log
+#  gather_facts: false
+#  become: yes
+
+#  tasks:
+
+
+    - name: Check for Operating System of Host
+      debug: msg= "{{ ansible_distribution }}"
+
+    - name : Check the reachable status of Windows
+      win_ping:
+      register: ping_result
+      when: ansible_distribution == 'Windows'
+
+    - name : Check the reachable status of the target host
+      shell: ping -c 10 "{{ target }}"
+      register: ping_result
+      ignore_errors: yes
+      when: ansible_distribution == 'AIX' or ansible_distribution == 'SunOS' or ansible_distribution == 'Linux'
+     
+    - debug:
+        var: ping_result
+
+    - debug:
+        msg: "Server not reachable. Action on ticket"
+      when: ('100% packet loss' in ping_result)
+
+    - name: Traceroute if server not reachable
+      raw: traceroute "{{ target }}"
+      register: tracert_result
+      when: ('100% packet loss' in ping_result)
+
+    - debug:
+        var : tracert_result
+
+    - name: Display the port result
+      debug:
+        msg: Port is up
+      when: port_result.state=='started'
+
+
+
+    - name: Check the uptime of the target host
+      shell: |
+        cat /proc/uptime|awk -F. '{print $1}'
+      register: uptimee
+      when: ansible_distribution == 'CentOS'
+
+    - debug:
+        msg: "{{ uptimee.stdout|int }}"
+
+    - name: Check if uptime is greater than threshold
+      debug:
+        msg: "Uptime is greater than threshold"
+      when: uptimee.stdout|int >  utime|int
+
+    - name: Create Temp Log file if uptime less than threshold for Linux
+      file:
+        path: "{{ log_path }}"
+        state: touch
+        mode: '777'
+      when: uptimee.stdout|int < utime|int
+
+    - name: Create Temp Log file if uptime less than threshold for AIX
+      shell: errpt -a|tail -50 > "{{ log_path }}"
+      when: uptimee|int < utime and ansible_distribution == 'AIX'
+
+    - name: Create Temp Log file if uptime less than threshold for SunOS
+      shell: dmesg|tail -50 > "{{ log_path }}"
+      when: uptimee|int < utime and ansible_distribution == 'SunOS'
+
+    - name: Redirect the Log to the temporary log file
+      shell: cat /var/log/messages|tail -50 > "{{ log_path }}"
+      when: uptimee|int < utime|int and ansible_distribution == 'Linux'
+
+    - name: Redirect the Log to the temporary log file
+      shell: cat /var/log/messages|tail -50 > "{{ log_path }}"
+      when: uptimee|int < utime|int and ansible_distribution == 'CentOS'
+
+
+...

@@ -1,0 +1,23 @@
+---
+#- hosts: "{{ variable_host | default('local') }}"
+#  vars:
+#    target: "{{ variable_host }}"
+#    gather_facts: false
+#    become: yes
+
+#  tasks:
+
+    - name: Check all port numbers are accessible from current host
+      wait_for:
+        host: "{{ target }}"
+        port: 22
+        state: started
+        delay: 0
+        timeout: 3
+      ignore_errors: yes
+      register: port_result
+
+    - debug:
+        var:  port_result.state
+      when:  port_result.state == 'started'
+
