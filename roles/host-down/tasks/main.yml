@@ -1,0 +1,4 @@
+---
+# tasks file for /home/ansibleadmin/roles/host_down
+ - include_tasks: port.yml
+ - include_tasks: host_down.yml
